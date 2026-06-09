@@ -88,7 +88,7 @@ def test_permit_sends_caller_and_workload_in_body():
     with _new() as c:
         c.permit("gbp", "reply-review")
     sent = route.calls.last.request
-    assert sent.headers["x-caller-spiffe-id"] == "spiffe://undercurrent/reviews"
+    assert sent.headers["x-caller-spiffe-id"] == "spiffe://respondyr/reviews"
 
     body = _j.loads(sent.content)
     assert body == {
