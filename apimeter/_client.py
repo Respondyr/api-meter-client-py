@@ -90,7 +90,7 @@ def _headers(caller: str) -> dict[str, str]:
         "Content-Type": "application/json",
         "Accept": "application/json",
         # Dev-mode identity hint; prod listeners trust the peer cert.
-        "X-Caller-SPIFFE-ID": f"spiffe://undercurrent/{caller}",
+        "X-Caller-SPIFFE-ID": f"spiffe://respondyr/{caller}",
     }
 
 
