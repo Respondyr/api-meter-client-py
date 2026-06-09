@@ -52,6 +52,7 @@ from ._errors import (
     Unauthorized,
 )
 from ._models import LocalFallbackConfig, Permit, ReportInput
+from ._mtls import build_mtls_async_client, build_mtls_httpx_client
 
 __all__ = [
     "AsyncClient",
@@ -66,6 +67,8 @@ __all__ = [
     "PermitWait",
     "ReportInput",
     "Unauthorized",
+    "build_mtls_async_client",
+    "build_mtls_httpx_client",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
