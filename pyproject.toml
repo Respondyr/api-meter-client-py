@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "api-meter-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python client for the api-meter permit service"
 readme = "README.md"
 license = { text = "MIT" }
@@ -19,11 +19,17 @@ Homepage = "https://github.com/Respondyr/api-meter-client-py"
 Issues = "https://github.com/Respondyr/api-meter-client-py/issues"
 
 [project.optional-dependencies]
+# prometheus-client is optional: _client.py guards the import and no-ops the
+# fallback counter when it's absent, so minimal installs stay dependency-light.
+metrics = [
+    "prometheus-client>=0.20",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "respx>=0.21",
     "ruff>=0.5",
+    "prometheus-client>=0.20",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -41,6 +41,21 @@ log = logging.getLogger("apimeter")
 _DEFAULT_TIMEOUT = 0.150  # seconds; match the Go client
 _VALID_WORKLOADS = frozenset({"platform", "outreach"})
 
+try:
+    from prometheus_client import Counter
+
+    _LOCAL_FALLBACK_GRANTS = Counter(
+        "apimeter_local_fallback_grants_total",
+        (
+            "Permits granted by in-process LocalFallback because meter was "
+            "unreachable. Every increment is a silent bypass — paid calls "
+            "proceeding without spend tracking or rate limit. Alert on rate>0."
+        ),
+        labelnames=("caller", "provider", "endpoint"),
+    )
+except ImportError:  # pragma: no cover — keep client usable without prometheus_client
+    _LOCAL_FALLBACK_GRANTS = None
+
 
 def _build_permit_body(provider: str, endpoint: str, caller: str, workload: str) -> dict:
     return {
@@ -129,9 +144,7 @@ class _Base:
         self._caller = caller
         self._workload = workload
         self._timeout = (
-            request_timeout
-            if request_timeout and request_timeout > 0
-            else _DEFAULT_TIMEOUT
+            request_timeout if request_timeout and request_timeout > 0 else _DEFAULT_TIMEOUT
         )
         self._fallback: LocalBucket | None = (
             LocalBucket(local_fallback) if local_fallback is not None else None
@@ -148,9 +161,19 @@ class _Base:
             raise MeterDown(f"apimeter: meter unreachable: {cause}") from cause
 
         if self._fallback.take(provider, endpoint):
+            if _LOCAL_FALLBACK_GRANTS is not None:
+                _LOCAL_FALLBACK_GRANTS.labels(
+                    caller=self._caller, provider=provider, endpoint=endpoint
+                ).inc()
             log.warning(
-                "apimeter: granted via local fallback (meter unreachable: %s)",
-                cause,
+                "apimeter: local fallback granted permit — meter unreachable, "
+                "call proceeding UNMETERED",
+                extra={
+                    "caller": self._caller,
+                    "provider": provider,
+                    "endpoint": endpoint,
+                    "cause": str(cause),
+                },
             )
             return Permit(
                 granted=True,
@@ -197,9 +220,7 @@ class _Base:
             return
         if resp.status_code == 400:
             raise BadRequest(f"apimeter: report rejected: {resp.text[:512]}")
-        raise MeterDown(
-            f"apimeter: report status {resp.status_code}: {resp.text[:256]}"
-        )
+        raise MeterDown(f"apimeter: report status {resp.status_code}: {resp.text[:256]}")
 
     # -- introspection ---------------------------------------------------
 
@@ -356,6 +377,7 @@ class AsyncClient(_Base):
 
 
 # -- convenience: let callers serialize ReportInput via asdict() -------
+
 
 def _report_asdict(inp: ReportInput) -> dict:
     """Used by tests; consumers shouldn't need this."""
