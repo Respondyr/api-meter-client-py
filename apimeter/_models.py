@@ -45,6 +45,8 @@ class ReportInput:
     latency_ms: int = 0
     retry_after_seconds: int | None = None
     rate_limit_remaining: int | None = None
+    # Customer org the reported call was on behalf of. Optional + additive.
+    org_id: str = ""
 
 
 @dataclass(frozen=True)

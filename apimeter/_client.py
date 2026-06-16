@@ -57,13 +57,18 @@ except ImportError:  # pragma: no cover — keep client usable without prometheu
     _LOCAL_FALLBACK_GRANTS = None
 
 
-def _build_permit_body(provider: str, endpoint: str, caller: str, workload: str) -> dict:
-    return {
+def _build_permit_body(
+    provider: str, endpoint: str, caller: str, workload: str, org_id: str = ""
+) -> dict:
+    body: dict[str, Any] = {
         "provider": provider,
         "endpoint": endpoint,
         "caller": caller,
         "workload": workload,
     }
+    if org_id:
+        body["org_id"] = org_id
+    return body
 
 
 def _build_report_body(inp: ReportInput, workload: str) -> dict:
@@ -82,6 +87,8 @@ def _build_report_body(inp: ReportInput, workload: str) -> dict:
         body["retry_after_seconds"] = inp.retry_after_seconds
     if inp.rate_limit_remaining is not None:
         body["rate_limit_remaining"] = inp.rate_limit_remaining
+    if inp.org_id:
+        body["org_id"] = inp.org_id
     return body
 
 
@@ -268,16 +275,18 @@ class Client(_Base):
 
     # -- public ----------------------------------------------------------
 
-    def permit(self, provider: str, endpoint: str) -> Permit:
+    def permit(self, provider: str, endpoint: str, org_id: str = "") -> Permit:
         """Ask for permission to call ``(provider, endpoint)``.
 
-        Returns a granted ``Permit`` on success.  Raises ``PermitWait``
-        on soft deny, ``Unauthorized`` / ``BadRequest`` on hard deny, and
-        ``MeterDown`` on unreachable meter with no fallback configured.
+        ``org_id`` is optional + additive: pass the customer org the call is on
+        behalf of so a permit deny is attributable to it.  Returns a granted
+        ``Permit`` on success.  Raises ``PermitWait`` on soft deny,
+        ``Unauthorized`` / ``BadRequest`` on hard deny, and ``MeterDown`` on
+        unreachable meter with no fallback configured.
         """
         if is_kill_switch_on():
             return self._killswitch_permit()
-        body = _build_permit_body(provider, endpoint, self._caller, self._workload)
+        body = _build_permit_body(provider, endpoint, self._caller, self._workload, org_id)
         try:
             resp = self._http.post(
                 f"{self._base_url}/v1/permit",
@@ -342,10 +351,10 @@ class AsyncClient(_Base):
     async def __aexit__(self, *_exc: object) -> None:
         await self.aclose()
 
-    async def permit(self, provider: str, endpoint: str) -> Permit:
+    async def permit(self, provider: str, endpoint: str, org_id: str = "") -> Permit:
         if is_kill_switch_on():
             return self._killswitch_permit()
-        body = _build_permit_body(provider, endpoint, self._caller, self._workload)
+        body = _build_permit_body(provider, endpoint, self._caller, self._workload, org_id)
         try:
             resp = await self._http.post(
                 f"{self._base_url}/v1/permit",
